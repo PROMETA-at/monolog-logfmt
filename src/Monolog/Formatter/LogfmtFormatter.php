@@ -5,6 +5,7 @@ namespace Petert82\Monolog\Formatter;
 
 use DateTime;
 use Monolog\Formatter\NormalizerFormatter;
+use Monolog\LogRecord;
 use function is_bool;
 use function is_scalar;
 use function var_export;
@@ -67,7 +68,7 @@ class LogfmtFormatter extends NormalizerFormatter
     /**
      * {@inheritdoc}
      */
-    public function format(array $record)
+    public function format(LogRecord $record)
     {
         $vars = parent::format($record);
 

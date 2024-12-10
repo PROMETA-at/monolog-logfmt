@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use Monolog\Level;
+use Monolog\LogRecord;
 use PHPUnit\Framework\TestCase;
 use Petert82\Monolog\Formatter\LogfmtFormatter;
 
@@ -47,40 +49,14 @@ Hi
         $this->assertEquals($expected, $formatter->format($record));
     }
 
-    public function testItFormatsScalarMessages(): void
-    {
-        $formatter = new LogfmtFormatter();
-        $record = $this->getRecord(1);
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=1'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-
-        $record = $this->getRecord(1.1);
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=1.1'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-
-        $record = $this->getRecord(true);
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=true'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-
-        $record = $this->getRecord(false);
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=false'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-
-        $record = $this->getRecord(null);
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=NULL'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-    }
-
     public function testItIncludesContext(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord('Message');
-        $record['context']['foo'] = 'bar';
+        $record = $this->getRecord('Message', ['foo' => 'bar']);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message foo=bar'."\n";
         $this->assertEquals($expected, $formatter->format($record));
 
-        $record = $this->getRecord('Message');
-        $record['context']['baz'] = 'something with spaces';
+        $record = $this->getRecord('Message', context: ['baz' => 'something with spaces']);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message baz="something with spaces"'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -88,13 +64,11 @@ Hi
     public function testItIncludesExtra(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord('Message');
-        $record['extra']['foo'] = 'bar';
+        $record = $this->getRecord('Message', extra: ['foo' => 'bar']);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message foo=bar'."\n";
         $this->assertEquals($expected, $formatter->format($record));
 
-        $record = $this->getRecord('Message');
-        $record['extra']['baz'] = 'something with spaces';
+        $record = $this->getRecord('Message', extra: ['baz' => 'something with spaces']);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message baz="something with spaces"'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -102,9 +76,7 @@ Hi
     public function testContextOverridesExtra(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord('Message');
-        $record['context']['foo'] = 'context val';
-        $record['extra']['foo'] = 'extra val';
+        $record = $this->getRecord('Message', context: ['foo' => 'context val'], extra: ['foo' => 'extra val']);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message foo="context val"'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -112,19 +84,21 @@ Hi
     public function testItIgnoresInvalidKeys(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord('Message');
-        $record['context'] = [
-            "you ain't seen me" => "right",
-            'cool%story' => 'bro',
-        ];
-        $record['extra'] = [
-            "this=wrong" => 1,
-            "no	tabs	pls" => 2,
-            '%^asdf' => true,
-            "
+        $record = $this->getRecord(
+            'Message',
+            context: [
+                "you ain't seen me" => "right",
+                'cool%story' => 'bro',
+            ],
+            extra: [
+                "this=wrong" => 1,
+                "no	tabs	pls" => 2,
+                '%^asdf' => true,
+                "
 what?" => false,
-            '' => 'ignore this',
-        ];
+                '' => 'ignore this',
+            ],
+        );
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message cool%story=bro %^asdf=true'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -132,17 +106,11 @@ what?" => false,
     public function testItFormatsDateTimes(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord(new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna')));
-        $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=2017-11-19T20:00:00+01:00'."\n";
-        $this->assertEquals($expected, $formatter->format($record));
-
-        $record = $this->getRecord('Message');
-        $record['context']['a_date'] = new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna'));
+        $record = $this->getRecord('Message', context: ['a_date' => new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna'))]);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message a_date=2017-11-19T20:00:00+01:00'."\n";
         $this->assertEquals($expected, $formatter->format($record));
 
-        $record = $this->getRecord('Message');
-        $record['extra']['a_date'] = new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna'));
+        $record = $this->getRecord('Message', extra: ['a_date' => new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna'))]);
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message a_date=2017-11-19T20:00:00+01:00'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -157,29 +125,33 @@ what?" => false,
             'YmdHis'
         );
 
-        $record = $this->getRecord(new DateTime('2017-11-19T20:00:00', new DateTimeZone('Europe/Vienna')));
-        $expected = 'ts=20171119190000 lvl=INFO chan=app msg=20171119200000'."\n";
+        $record = $this->getRecord('test');
+        $expected = 'ts=20171119190000 lvl=INFO chan=app msg=test'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
 
     public function testItFormatsNestedContextOrExtra(): void
     {
         $formatter = new LogfmtFormatter();
-        $record = $this->getRecord('Message');
-        $record['context'] = [
-            'outer' => [
-                'inner' => ['one', 'two'],
-            ],
-        ];
+        $record = $this->getRecord(
+            'Message',
+            context: [
+                'outer' => [
+                    'inner' => ['one', 'two'],
+                ],
+            ]
+        );
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message outer={"inner":["one","two"]}'."\n";
         $this->assertEquals($expected, $formatter->format($record));
 
-        $record = $this->getRecord('Message');
-        $record['extra'] = [
-            'outer' => [
-                'inner' => ['one' => 1, 'two'],
-            ],
-        ];
+        $record = $this->getRecord(
+            'Message', 
+            extra: [
+                'outer' => [
+                    'inner' => ['one' => 1, 'two'],
+                ],
+            ]
+        );
         $expected = 'ts=2017-11-19T19:00:00+00:00 lvl=INFO chan=app msg=Message outer={"inner":{"one":1,"0":"two"}}'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -206,8 +178,7 @@ what?" => false,
 
         // Invalid keys should also be excluded
         $formatter = new LogfmtFormatter('time stamp', 'le"v"el', ' ', 'mess=age');
-        $record = $this->getRecord('Message');
-        $record['context']['foo'] = 'bar';
+        $record = $this->getRecord('Message', context: ['foo' => 'bar']);
         $expected = 'foo=bar'."\n";
         $this->assertEquals($expected, $formatter->format($record));
     }
@@ -247,16 +218,15 @@ EOS;
         $this->assertEquals($expected, $formatter->formatBatch($batch));
     }
 
-    protected function getRecord($message = 'A log message'): array
+    protected function getRecord(string $message = 'A log message', array $context = [], array $extra = []): LogRecord
     {
-        return [
-            'message' => $message,
-            'level' => 200,
-            'level_name' => 'INFO',
-            'context' => [],
-            'channel' => 'app',
-            'datetime' => new DateTime('2017-11-19T19:00:00', new DateTimeZone('UTC')),
-            'extra' => [],
-        ];
+        return new LogRecord(
+            new \DateTimeImmutable('2017-11-19T19:00:00', new DateTimeZone('UTC')),
+            'app',
+            Level::Info,
+            $message,
+            $context,
+            $extra,
+        );
     }
 }
